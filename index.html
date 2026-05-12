@@ -449,7 +449,8 @@ body{
 
 <script>
 const REFRESH_MIN=5;
-const API_URL='https://script.google.com/macros/s/AKfycbwAS2SNi6lZXWa_LRmOD3dXAzzD6D2TaHnTVeWyb2YpOm1zBUXoNOYoh45bGakpMnxH1g/exec'; // Apps Script — real-time, no cache
+const SCRIPT_URL='https://script.google.com/macros/s/AKfycbwAS2SNi6lZXWa_LRmOD3dXAzzD6D2TaHnTVeWyb2YpOm1zBUXoNOYoh45bGakpMnxH1g/exec';
+const API_URL='https://api.allorigins.win/raw?url='+encodeURIComponent(SCRIPT_URL); // CORS proxy
 
 const BANKS={
   'ธนาคารไทยพาณิชย์':  {short:'SCB', color:'#9b72ff',bg:'rgba(155,114,255,.15)'},
@@ -518,7 +519,7 @@ function checkChanges(newRows){
 
 async function loadBond(){
   try{
-    const r = await fetch(API_URL + '?sheet=Bond_News&_=' + Date.now(), {cache:'no-store', mode:'cors', credentials:'omit', redirect:'follow'});
+    const r = await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(SCRIPT_URL+'?sheet=Bond_News&_='+Date.now()), {cache:'no-store'});
     if(!r.ok) throw new Error('HTTP ' + r.status);
     const json = await r.json();
     bondRows = json.filter(r => r.run_date);
@@ -564,7 +565,7 @@ async function loadData(){
   const btn=document.getElementById('btn-refresh');
   btn.disabled=true;btn.textContent='⌛';
   try{
-    const r=await fetch(API_URL+'?sheet=Deposit_Rates&_='+Date.now(),{cache:'no-store', mode:'cors', credentials:'omit', redirect:'follow'});
+    const r=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(SCRIPT_URL+'?sheet=Deposit_Rates&_='+Date.now()),{cache:'no-store'});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const json=await r.json();
     allRows=json.filter(r=>r.bank_name&&r.run_date);

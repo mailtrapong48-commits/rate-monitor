@@ -364,7 +364,42 @@
 
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwAS2SNi6lZXWa_LRmOD3dXAzzD6D2TaHnTVeWyb2YpOm1zBUXoNOYoh45bGakpMnxH1g/exec';
-const PROXY   = 'https://api.allorigins.win/raw?url=';
+
+/* ── JSONP (ไม่มี CORS ปัญหาเลย) ── */
+function fetchJSONP(url, timeout = 10000) {
+  return new Promise((resolve, reject) => {
+    const cbName = '_gcb_' + Date.now();
+    const script = document.createElement('script');
+    const timer  = setTimeout(() => {
+      cleanup(); reject(new Error('JSONP timeout'));
+    }, timeout);
+    function cleanup() {
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cbName] = data => { clearTimeout(timer); cleanup(); resolve(data); };
+    script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('JSONP load error')); };
+    script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cbName;
+    document.head.appendChild(script);
+  });
+}
+
+/* ── Proxy fallback (ถ้า Apps Script ยังไม่ได้ deploy ใหม่) ── */
+const PROXIES = [
+  u => 'https://corsproxy.io/?' + encodeURIComponent(u),
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+];
+async function fetchViaProxy(url) {
+  for (const mkUrl of PROXIES) {
+    try {
+      const res = await fetch(mkUrl(url), { cache:'no-store', signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      const text = await res.text();
+      return JSON.parse(text);
+    } catch { continue; }
+  }
+  throw new Error('all proxies failed');
+}
 
 let allRates = [], sortCol = 'rate', sortDir = 'desc', showAll = false;
 let ci = null, cType = 'bar', curTab = 'deposit';
@@ -615,44 +650,100 @@ function injectDemo() {
   ['dn1','dn2','dn3'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=html; });
 }
 
+/* ── JSONP (ไม่มี CORS เลย — ต้อง deploy Apps Script ใหม่ก่อน) ── */
+function fetchJSONP(url, timeout=9000) {
+  return new Promise((resolve, reject) => {
+    const cb = '_gcb_' + Date.now();
+    const s  = document.createElement('script');
+    const t  = setTimeout(() => { cleanup(); reject(new Error('timeout')); }, timeout);
+    function cleanup() { delete window[cb]; if(s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = data => { clearTimeout(t); cleanup(); resolve(data); };
+    s.onerror  = ()   => { clearTimeout(t); cleanup(); reject(new Error('load error')); };
+    s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb;
+    document.head.appendChild(s);
+  });
+}
+
+/* ── Proxy fallback (2 proxies) ── */
+const PROXIES = [
+  u => 'https://corsproxy.io/?' + encodeURIComponent(u),
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+];
+async function fetchProxy(url) {
+  for (const mk of PROXIES) {
+    try {
+      const res  = await fetch(mk(url), { cache:'no-store', signal:AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      return JSON.parse(await res.text());
+    } catch { continue; }
+  }
+  throw new Error('all proxies failed');
+}
+
+/* ── Extract data from raw response ── */
+function extract(raw) {
+  const rk = ['depositRates','deposit_rates','Deposit_Rates','rates'];
+  const nk = ['bondNews','bond_news','Bond_News','news','bonds'];
+  const lk = ['lastUpdate','last_update','updated','timestamp'];
+  let rd=null, nd=null, lu=null;
+  for(const k of rk){if(Array.isArray(raw[k])){rd=raw[k];break;}}
+  for(const k of nk){if(Array.isArray(raw[k])){nd=raw[k];break;}}
+  for(const k of lk){if(raw[k]){lu=raw[k];break;}}
+  if(!rd&&Array.isArray(raw)) rd=raw;
+  return { rd, nd, lu };
+}
+
 /* ── Main ── */
 async function loadData() {
   const btn = document.getElementById('refBtn');
   btn.classList.add('spin'); setSt('โหลด...');
+
+  let raw=null, method='';
+
+  /* 1️⃣ JSONP — ไม่มี CORS (ต้อง deploy Apps Script ใหม่) */
   try {
-    const res = await fetch(PROXY+encodeURIComponent(GAS_URL), {cache:'no-store',signal:AbortSignal.timeout(12000)});
-    if (!res.ok) throw new Error('HTTP '+res.status);
-    const raw = await res.json();
-    const rk = ['depositRates','deposit_rates','Deposit_Rates','rates'];
-    const nk = ['bondNews','bond_news','Bond_News','news','bonds'];
-    const lk = ['lastUpdate','last_update','updated','timestamp'];
-    let rd=null,nd=null,lu=null;
-    for(const k of rk){if(Array.isArray(raw[k])){rd=raw[k];break;}}
-    for(const k of nk){if(Array.isArray(raw[k])){nd=raw[k];break;}}
-    for(const k of lk){if(raw[k]){lu=raw[k];break;}}
-    if(!rd&&Array.isArray(raw)) rd=raw;
-    if(!rd?.length) throw new Error('empty');
-    const rates=parseRates(rd), news=parseNews(nd||[]);
-    if(!rates.length) throw new Error('parse fail');
-    allRates=rates;
-    go(rates, news, lu, false);
-  } catch(e) {
-    console.warn('[Monitor]', e.message, '→ demo');
-    const {rates,news}=demo();
-    allRates=rates; go(rates,news,null,true);
+    raw = await fetchJSONP(GAS_URL);
+    method = 'JSONP';
+  } catch(e1) {
+    console.warn('[Monitor] JSONP:', e1.message);
+    /* 2️⃣ Proxy fallback */
+    try {
+      raw = await fetchProxy(GAS_URL);
+      method = 'Proxy';
+    } catch(e2) {
+      console.warn('[Monitor] Proxy:', e2.message);
+    }
   }
+
+  if (raw) {
+    const { rd, nd, lu } = extract(raw);
+    const rates = rd?.length ? parseRates(rd) : [];
+    const news  = parseNews(nd||[]);
+    if (rates.length) {
+      allRates = rates;
+      go(rates, news, lu, false, method);
+      btn.classList.remove('spin');
+      return;
+    }
+  }
+
+  /* 3️⃣ Demo */
+  console.warn('[Monitor] → demo');
+  const {rates,news} = demo();
+  allRates = rates;
+  go(rates, news, null, true, '');
   btn.classList.remove('spin');
 }
 
-function go(rates, news, lu, isDm) {
-  const now=new Date();
-  const ts=now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+function go(rates, news, lu, isDm, method) {
+  const now = new Date();
+  const ts  = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('lastUpdated').textContent = lu ? `อัปเดต: ${fmtD(lu)}` : `โหลดเมื่อ ${ts} น.`;
-  setSt(isDm?'Demo':  `Live · ${rates.length} ธนาคาร`, isDm?'warn':'ok');
-  if(isDm) injectDemo();
+  setSt(isDm ? 'Demo' : `Live · ${rates.length} ธนาคาร · ${method}`, isDm?'warn':'ok');
+  if (isDm) injectDemo();
   renderTop3(rates); renderTable(rates);
   renderChart(rates); renderNews(news);
-  document.getElementById('abStatus').textContent = isDm ? '⚠️ Demo Data' : '✅ Live Data';
+  document.getElementById('abStatus').textContent = isDm ? '⚠️ Demo Data' : `✅ Live (${method})`;
   document.getElementById('abTime').textContent   = ts + ' น.';
 }
 

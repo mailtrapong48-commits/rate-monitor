@@ -431,9 +431,9 @@ function fk(o, opts) {
 function parseRates(arr) {
   if (!Array.isArray(arr)) return [];
   return arr.map(r => {
-    const bk = fk(r,['bank','ธนาคาร','bankname','institution','name']);
-    const rk = fk(r,['rate','อัตรา','interestrate','depositrate','value','percent']);
-    const tk = fk(r,['term','ระยะ','duration','period','tenure','month','maturity']);
+    const bk = fk(r,['bank_name','bank','ธนาคาร','bankname','institution','name']);
+    const rk = fk(r,['interest_rate_percent','interest_rate','rate','อัตรา','interestrate','depositrate','value','percent']);
+    const tk = fk(r,['term','interest_rate_text','ระยะ','duration','period','tenure','month','maturity']);
     return {
       bank: bk ? String(r[bk]).trim() : '',
       rate: rk ? parseFloat(r[rk])||0 : 0,

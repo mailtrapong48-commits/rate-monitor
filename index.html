@@ -518,7 +518,7 @@ function checkChanges(newRows){
 
 async function loadBond(){
   try{
-    const r = await fetch(API_URL + '?sheet=Bond_News&_=' + Date.now(), {cache:'no-store'});
+    const r = await fetch(API_URL + '?sheet=Bond_News&_=' + Date.now(), {cache:'no-store', mode:'cors', credentials:'omit', redirect:'follow'});
     if(!r.ok) throw new Error('HTTP ' + r.status);
     const json = await r.json();
     bondRows = json.filter(r => r.run_date);
@@ -564,7 +564,7 @@ async function loadData(){
   const btn=document.getElementById('btn-refresh');
   btn.disabled=true;btn.textContent='⌛';
   try{
-    const r=await fetch(API_URL+'?sheet=Deposit_Rates&_='+Date.now(),{cache:'no-store'});
+    const r=await fetch(API_URL+'?sheet=Deposit_Rates&_='+Date.now(),{cache:'no-store', mode:'cors', credentials:'omit', redirect:'follow'});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const json=await r.json();
     allRows=json.filter(r=>r.bank_name&&r.run_date);

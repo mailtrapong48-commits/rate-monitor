@@ -445,12 +445,12 @@ function parseRates(arr) {
 function parseNews(arr) {
   if (!Array.isArray(arr)) return [];
   return arr.map(r => {
-    const tk  = fk(r,['title','หัวข้อ','headline','news','subject']);
-    const dk  = fk(r,['date','วันที่','timestamp','published','pubdate']);
+    const tk  = fk(r,['title','หัวข้อ','headline','news','subject','bond_title']);
+    const dk  = fk(r,['run_date','created_at','date','วันที่','timestamp','published','pubdate']);
     const yk  = fk(r,['yield','อัตราผลตอบแทน','rate','bondrate','coupon']);
-    const sk  = fk(r,['source','แหล่งที่มา','publisher','from']);
-    const uk  = fk(r,['url','link','href','website','ref']);
-    const smk = fk(r,['summary','description','content','excerpt','detail','snippet']);
+    const sk  = fk(r,['source_name','source','แหล่งที่มา','publisher','from']);
+    const uk  = fk(r,['source_url','url','link','href','website','ref']);
+    const smk = fk(r,['snippet','summary','description','content','excerpt','detail']);
     return {
       title:   tk  ? String(r[tk]).trim()  : '',
       date:    dk  ? String(r[dk]).trim()  : '',
@@ -635,7 +635,7 @@ function fetchJSONP(url, timeout=9000) {
     function cleanup() { delete window[cb]; if(s.parentNode) s.parentNode.removeChild(s); }
     window[cb] = data => { clearTimeout(t); cleanup(); resolve(data); };
     s.onerror  = ()   => { clearTimeout(t); cleanup(); reject(new Error('load error')); };
-    s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb;
+    s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb + '&t=' + Date.now();
     document.head.appendChild(s);
   });
 }

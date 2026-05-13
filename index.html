@@ -681,11 +681,16 @@ async function loadData() {
   const btn = document.getElementById('refBtn');
   btn.classList.add('spin'); setSt('โหลด...');
 
+  /* แสดง demo ทันที (non-blocking) */
+  const d = demo();
+  allRates = d.rates;
+  go(d.rates, d.news, null, true, '');
+
   let raw=null, method='';
 
-  /* 1️⃣ JSONP — ไม่มี CORS (ต้อง deploy Apps Script ใหม่) */
+  /* 1️⃣ JSONP */
   try {
-    raw = await fetchJSONP(GAS_URL, 5000);
+    raw = await fetchJSONP(GAS_URL, 8000);
     method = 'JSONP';
   } catch(e1) {
     console.warn('[Monitor] JSONP:', e1.message);
@@ -704,17 +709,14 @@ async function loadData() {
     const news  = parseNews(nd||[]);
     if (rates.length) {
       allRates = rates;
-      go(rates, news, lu, false, method);
+      go(rates, news, lu, false, method); /* อัปเดต live แทน demo */
       btn.classList.remove('spin');
       return;
     }
   }
 
-  /* 3️⃣ Demo */
-  console.warn('[Monitor] → demo');
-  const {rates,news} = demo();
-  allRates = rates;
-  go(rates, news, null, true, '');
+  /* Live ไม่ได้จริงๆ — demo ค้างไว้ */
+  console.warn('[Monitor] → demo only');
   btn.classList.remove('spin');
 }
 

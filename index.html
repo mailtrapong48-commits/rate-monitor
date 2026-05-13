@@ -723,7 +723,11 @@ function go(rates, news, lu, isDm, method) {
   const ts  = now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('lastUpdated').textContent = lu ? `อัปเดต: ${fmtD(lu)}` : `โหลดเมื่อ ${ts} น.`;
   setSt(isDm ? 'Demo' : `Live · ${rates.length} ธนาคาร · ${method}`, isDm?'warn':'ok');
-  if (isDm) injectDemo();
+  if (isDm) {
+    injectDemo();
+  } else {
+    ["dn1","dn2","dn3"].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=""; });
+  }
   renderTop3(rates); renderTable(rates);
   renderChart(rates); renderNews(news);
   document.getElementById('abStatus').textContent = isDm ? '⚠️ Demo Data' : `✅ Live (${method})`;

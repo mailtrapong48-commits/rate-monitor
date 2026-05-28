@@ -441,10 +441,12 @@ function parseRates(arr) {
     const bk = fk(r,['bank_name','bank','ธนาคาร','bankname','institution','name']);
     const rk = fk(r,['interest_rate_percent','interest_rate','rate','อัตรา','interestrate','depositrate','value','percent']);
     const tk = fk(r,['term','interest_rate_text','ระยะ','duration','period','tenure','month','maturity']);
+    const uk = fk(r,['source_url','url','link','href','website','ref']);
     return {
       bank: bk ? String(r[bk]).trim() : '',
       rate: rk ? parseFloat(r[rk])||0 : 0,
-      term: tk ? String(r[tk]).trim() : '-'
+      term: tk ? String(r[tk]).trim() : '-',
+      url:  uk ? String(r[uk]).trim() : ''
     };
   }).filter(x => x.bank && x.rate > 0);
 }
@@ -485,17 +487,17 @@ function renderTop3(rates) {
   const medals = ['🥇','🥈','🥉'], cls = ['r1','r2','r3'];
   if (!t3.length) { el.innerHTML = '<div class="empty">ไม่พบข้อมูล</div>'; return; }
   el.innerHTML = t3.map((r,i) => `
-    <div class="t3-card ${cls[i]}">
+    <a class="t3-card ${cls[i]}" ${r.url ? `href="${r.url}" target="_blank" rel="noopener"` : ''} style="text-decoration:none;display:flex;align-items:center;gap:14px;">
       <div class="medal">${medals[i]}</div>
       <div class="t3-info">
         <div class="t3-bank">${r.bank}</div>
-        <div class="t3-term">${r.term}</div>
+        <div class="t3-term">${r.term}${r.url ? ' <span style="font-size:10px;color:var(--blue)">↗</span>' : ''}</div>
       </div>
       <div style="text-align:right">
         <div class="t3-rate">${r.rate.toFixed(2)}</div>
         <div class="t3-unit">% ต่อปี</div>
       </div>
-    </div>`).join('');
+    </a>`).join('');
 }
 
 function renderTable(rates) {
@@ -516,8 +518,8 @@ function renderTable(rates) {
         <th onclick="doSort('rate')" class="${thC('rate')}">อัตรา%</th>
       </tr></thead>
       <tbody>${shown.map(r=>`
-        <tr>
-          <td>${r.bank}</td>
+        <tr ${r.url ? `onclick="window.open('${r.url}','_blank')" style="cursor:pointer"` : ''}>
+          <td>${r.bank}${r.url ? ' <span style="font-size:10px;color:var(--blue)">↗</span>' : ''}</td>
           <td><span class="tag">${r.term||'-'}</span></td>
           <td>${r.rate.toFixed(2)}%</td>
         </tr>`).join('')}
